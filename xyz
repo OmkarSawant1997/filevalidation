@@ -1,0 +1,586 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package mrp.stageone.manufacturingPlanROP.service;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Level;
+import mrp.commonServices.CommonServiceImpl;
+import mrp.commonmodel.ErrorFileDetailsModel;
+import mrp.errorcode.ErrorCodeHandler.ColumnNameException;
+import mrp.errorcode.ErrorCodeHandler.DateFormateException;
+import mrp.errorcode.ErrorCodeHandler.EmptyCellException;
+import mrp.errorcode.ErrorCodeHandler.ValidateFileException;
+import mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnIndex;
+import mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.GROUP;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.PLANNED_MONTH;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.PLANNED_QTY;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.PO_NO;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.PO_STATUS;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.PRODUCT_NAME;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.RATE;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.SERIES;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.SHORTFALL;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.TESTING_VENDOR;
+import static mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPColumnNameModel.WORKING_DATE;
+import mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPModel;
+import mrp.stageone.manufacturingPlanROP.model.ManufacturingPlanROPXLSFileErrorModel;
+import org.apache.log4j.Logger;
+import org.apache.poi.EncryptedDocumentException;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+
+/**
+ *
+ * @author Administrator omkar 01.04.2022
+ */
+public class ManufacturingPlanROPServiceImpl implements ManufacturingPlanROPService {
+
+    static final Logger mfgPlanROPerrorlog = Logger.getLogger("mfgPlanROPerrorlog");
+
+    @Override
+    public List<ManufacturingPlanROPModel> readManufacturingPlanROPFileInXLS(String stringFilepath) throws ColumnNameException, DateFormateException, ValidateFileException {
+
+        Workbook wb = null;
+        List<ManufacturingPlanROPModel> listManufacturingPlanROPModel = new ArrayList<>();
+        try {
+            ManufacturingPlanROPColumnNameModel objManufacturingPlanROPColumnNameModel = new ManufacturingPlanROPColumnNameModel() {
+            };
+            ManufacturingPlanROPColumnIndex objManufacturingPlanROPColumnIndex = new ManufacturingPlanROPColumnIndex();
+            wb = WorkbookFactory.create(new File(stringFilepath));
+            FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+            DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+
+            StringBuilder columnNameMismathchmessage = new StringBuilder();
+            Set<String> uniqueSet = new HashSet<>();
+            Set<String> duplicateSet = new HashSet<>();
+            //    HashMap<String, Integer> emptyColumnHashMap = new HashMap<>();
+            /*
+            Specify Sheet name
+             */
+            int index = wb.getSheetIndex("Production File");
+            if (index >= 0) {
+                Sheet sheet = wb.getSheet("Production File");
+                Row row;
+                Cell cell;
+                //  int iErrorCount = 0;
+                int debugcount = 0;
+                Iterator rows = sheet.rowIterator();
+                while (rows.hasNext()) {
+                    row = (Row) rows.next();
+                    Iterator cells = row.cellIterator();
+                    /*
+                 check Header name index
+                     */
+                    if (row.getRowNum() == 0) {
+                        int count = 0;
+
+                        while (cells.hasNext()) {
+
+                            cell = (Cell) cells.next();
+                            String ch = cell.toString();
+                            switch (ch) {
+                                case GROUP:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsGROUP_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case PO_NO:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsPO_NO_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case PRODUCT_NAME:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsPRODUCT_NAME_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case PLANNED_QTY:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsPLANNED_QTY_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case SERIES:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsSERIES_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case PLANNED_MONTH:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsPLANNED_MONTH_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case RATE:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsRATE_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case TESTING_VENDOR:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsTESTING_VENDOR_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case PO_STATUS:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsPO_STATUS_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case WORKING_DATE:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsWORKING_DATE_INDEX((short) cell.getColumnIndex());
+                                    break;
+                                case SHORTFALL:
+                                    if (!uniqueSet.add(ch)) {
+                                        duplicateSet.add(ch);
+                                    }
+                                    count++;
+                                    objManufacturingPlanROPColumnIndex.setsSHORTFALL_INDEX((short) cell.getColumnIndex());
+                                    break;
+
+                            }
+                            mfgPlanROPerrorlog.info(cell.getColumnIndex());
+                            mfgPlanROPerrorlog.info(cell.toString());
+                        }
+                        if (count < 11) {
+                            columnNameMismathchmessage.append("This column name not found:");
+                            if (objManufacturingPlanROPColumnIndex.getsGROUP_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(GROUP);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsPLANNED_MONTH_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(PLANNED_MONTH);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsPLANNED_QTY_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(PLANNED_QTY);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsPO_NO_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(PO_NO);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsPO_STATUS_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(PO_STATUS);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsPRODUCT_NAME_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(PRODUCT_NAME);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsRATE_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(RATE);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsSERIES_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(SERIES);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsSHORTFALL_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(SHORTFALL);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsTESTING_VENDOR_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(TESTING_VENDOR);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            if (objManufacturingPlanROPColumnIndex.getsWORKING_DATE_INDEX() == -1) {
+                                columnNameMismathchmessage.append(" ! ");
+                                columnNameMismathchmessage.append(WORKING_DATE);
+                                columnNameMismathchmessage.append("  ");
+                            }
+                            throw new ColumnNameException(columnNameMismathchmessage.toString());
+                        } else if (!duplicateSet.isEmpty()) {
+                            columnNameMismathchmessage.append("This duplicates column name found:");
+                            columnNameMismathchmessage.append(duplicateSet.toString());
+                            throw new ColumnNameException(columnNameMismathchmessage.toString());
+                        }
+
+                    } else if (row.getRowNum() >= 1) {
+                        ManufacturingPlanROPXLSFileErrorModel objManufacturingPlanROPXLSFileErrorModel = new ManufacturingPlanROPXLSFileErrorModel();
+                        List<ManufacturingPlanROPXLSFileErrorModel> listManufacturingPlanROPXLSFileErrorModel = new ArrayList();
+                        int iRowCount = 1;
+                        debugcount++;
+                        CommonServiceImpl.iNoOfRow++;
+                        iRowCount++;
+                        objManufacturingPlanROPXLSFileErrorModel.setiRowNO(iRowCount);
+                        ManufacturingPlanROPModel objManufacturingPlanROPModel = new ManufacturingPlanROPModel();
+                        boolean flag = false;
+                        boolean flagDate = false;
+                        boolean flagnull = false;
+
+                        StringBuilder strBldrEmpty = new StringBuilder();
+                        int iErrorColumnCount = 0;
+                        int iColumnCount = 0;
+
+                        while (cells.hasNext()) {
+
+                            cell = (Cell) cells.next();
+                            short ch = (short) cell.getColumnIndex();
+                            String val = "";
+                            if (cell != null) {
+                                switch (evaluator.evaluateInCell(cell).getCellType()) {
+                                    case Cell.CELL_TYPE_BOOLEAN:
+                                        val = String.valueOf(cell.getBooleanCellValue());
+
+                                        break;
+                                    case Cell.CELL_TYPE_NUMERIC:
+                                        if (DateUtil.isCellDateFormatted(cell)) {
+                                            Date date = cell.getDateCellValue();
+                                            val = String.valueOf(df.format(date));
+
+                                        } else {
+                                            val = String.valueOf(cell.getNumericCellValue());
+                                            String v[] = val.split("\\.");
+                                            val = val.split("\\.")[0];
+                                        }
+
+                                        break;
+                                    case Cell.CELL_TYPE_STRING:
+                                        val = String.valueOf(cell.getStringCellValue());
+
+                                        break;
+                                    case Cell.CELL_TYPE_BLANK:
+                                        System.out.println("Blank");
+
+                                        break;
+                                    case Cell.CELL_TYPE_ERROR:
+                                        val = String.valueOf(cell.getErrorCellValue());
+
+                                        break;
+                                    case Cell.CELL_TYPE_FORMULA:
+                                        val = String.valueOf(evaluator.evaluateFormulaCell(cell));
+
+                                        break;
+                                }
+                            } else {
+                                flag = true;
+                            }
+                            /*
+                        set values
+                             */
+
+                            if (objManufacturingPlanROPColumnIndex.getsGROUP_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !GROUP ");
+                                    //  emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringGroup(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringGroup(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsPLANNED_MONTH_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !PLANNED MONTH ");
+                                    //     emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringPlannedMonth(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringPlannedMonth(val);
+                                    iColumnCount++;
+                                }
+                            } else if (objManufacturingPlanROPColumnIndex.getsPLANNED_QTY_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !PLANNED_QTY ");
+                                    //    emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringPlannedQty(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringPlannedQty(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsPO_NO_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !PO_NO ");
+                                    //  emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringPONO(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringPONO(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsPO_STATUS_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !PO_STATUS ");
+                                    //    emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringPOStatus(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringPOStatus(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsPRODUCT_NAME_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !PRODUCT_NAME ");
+                                    //    emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringProductName(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringProductName(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsRATE_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !RATE ");
+                                    //    emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringRate(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringRate(val);
+                                    iColumnCount++;
+                                }
+
+                            } else if (objManufacturingPlanROPColumnIndex.getsSERIES_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !SERIES ");
+                                    //  emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringSeries(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringSeries(val);
+                                    iColumnCount++;
+                                }
+                            } //                            } else if (objManufacturingPlanROPColumnIndex.getsSHORTFALL_INDEX() == ch) {
+                            //                                if (val.trim().length() == 0) {
+                            //                                    flagnull = true;
+                            //                                    strBldrEmpty.append(" !SHORTFALL ");
+                            //                                    iErrorColumnCount++;
+                            //                                } else {
+                            //                                    objManufacturingPlanROPModel.setStringShortfall(val);
+                            //                                     iColumnCount++;
+                            //                                }
+                            //                            }
+                            //                            else if (objManufacturingPlanROPColumnIndex.getsWORKING_DATE_INDEX() == ch) {
+                            //                                if (val.trim().length() == 0) {
+                            //                                    flagnull = true;
+                            //                                    strBldrEmpty.append(" !WORKING_DATE ");
+                            //                                    iErrorColumnCount++;
+                            //                                } else {
+                            //                                    objManufacturingPlanROPModel.setStringWorking_Date(val);
+                            //                                     iColumnCount++;
+                            //                                }
+                            //
+                            //                            } 
+                            else if (objManufacturingPlanROPColumnIndex.getsTESTING_VENDOR_INDEX() == ch) {
+                                if (val.trim().length() == 0) {
+                                    flagnull = true;
+                                    strBldrEmpty.append(" !TESTING_VENDOR ");
+                                    //     emptyColumnHashMap.put(objManufacturingPlanROPModel.getStringTestingVendor(),row.getRowNum());
+                                    iErrorColumnCount++;
+                                } else {
+                                    objManufacturingPlanROPModel.setStringTestingVendor(val);
+                                    iColumnCount++;
+
+                                }
+
+                            }
+                            //     if (flagnull = true && iErrorColumnCount > 0 && iErrorColumnCount != 9) {
+                            if (iErrorColumnCount > 0) {
+                                StringBuilder stringbuilder = new StringBuilder();
+                                stringbuilder.append("This cell is blank:");
+                                if (objManufacturingPlanROPModel.getStringGroup() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(GROUP);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    // stringbuilder.append(" GROUP! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringPONO() == "0" || objManufacturingPlanROPModel.getStringPONO() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(PO_NO);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" PO_NO! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringPOStatus() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(PO_STATUS);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" PO_STATUS! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringPlannedMonth() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(PLANNED_MONTH);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" PLANNED_MONTH! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringPlannedQty() == "0" || objManufacturingPlanROPModel.getStringPlannedQty() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(PLANNED_QTY);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" PLANNED_QTY! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringProductName() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(PRODUCT_NAME);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" PRODUCT_NAME! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringRate() == "0" || objManufacturingPlanROPModel.getStringRate() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(RATE);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" RATE! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringSeries() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(SERIES);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" SERIES! ");
+                                }
+                                if (objManufacturingPlanROPModel.getStringTestingVendor() == null) {
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrColumnName(TESTING_VENDOR);
+                                    objManufacturingPlanROPXLSFileErrorModel.setStrMessage("This cell is Empty");
+                                    stringbuilder.append(" TESTING_VENDOR! ");
+                                }
+                                stringbuilder.append("at row no" + " " + row.getRowNum()); //added by omkar
+                                listManufacturingPlanROPXLSFileErrorModel.add(objManufacturingPlanROPXLSFileErrorModel);
+
+                                if (flagnull == true && iErrorColumnCount == 10 && iErrorColumnCount != 9 && iErrorColumnCount != 0) {
+
+                                    strBldrEmpty.append(" column values are null  at line No:" + row.getRowNum());
+                                    throw new ColumnNameException(listManufacturingPlanROPXLSFileErrorModel);
+                                }
+                                
+
+                            } 
+
+//                            } else {
+//                                flag = true;
+//                                StringBuilder stringbuilder = new StringBuilder();
+//                                stringbuilder.append("This cell is blank:");
+//
+//                                if (objManufacturingPlanROPModel.getStringGroup() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(GROUP);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringPONO() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(PO_NO);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringProductName() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(PRODUCT_NAME);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringPlannedQty() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(PLANNED_QTY);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringSeries() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(SERIES);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//
+//                                if (objManufacturingPlanROPModel.getStringPlannedMonth() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(PLANNED_MONTH);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringRate() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(RATE);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringTestingVendor() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(TESTING_VENDOR);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                if (objManufacturingPlanROPModel.getStringPONO() == null) {
+//                                    objErrorFileDetailsModel.setStringColumnName(PO_STATUS);
+//                                    objErrorFileDetailsModel.setStringMessage("Cell is Empty");
+//
+//                                }
+//                                throw new EmptyCellException(objErrorFileDetailsModel.toString());
+//                                
+//                            }
+                            mfgPlanROPerrorlog.info(val);
+                           
+                        }
+                        if (iErrorColumnCount > 0) {
+                        throw new ColumnNameException(strBldrEmpty.toString());
+                        }
+                        else{
+                    listManufacturingPlanROPModel.add(objManufacturingPlanROPModel);}
+                    }
+
+                }
+
+            } else {
+                StringBuilder strBldr = new StringBuilder();
+                strBldr.append("This sheet name not found : ");
+                strBldr.append(" Production File ");
+                throw new ColumnNameException(strBldr.toString());
+            }
+            //  return listManufacturingPlanROPModel;
+        } catch (IOException ex) {
+            java.util.logging.Logger.getLogger(ManufacturingPlanROPServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InvalidFormatException ex) {
+            java.util.logging.Logger.getLogger(ManufacturingPlanROPServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
+        }catch (EncryptedDocumentException ex) {
+            java.util.logging.Logger.getLogger(ManufacturingPlanROPServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
+        } //        } catch (EmptyCellException ex) {
+        //            java.util.logging.Logger.getLogger(ManufacturingPlanROPServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
+        //        } 
+        finally {
+            if (wb != null) {
+                try {
+                    wb.close();
+                } catch (IOException ex) {
+                    mfgPlanROPerrorlog.info(ex.getMessage());
+                }
+            }
+        }
+        return listManufacturingPlanROPModel;
+    }
+}
